@@ -1,0 +1,39 @@
+#cloud-config
+# Erstkonfiguration des Servers. Platzhalter wie ${hostname} fuellt OpenTofu aus.
+hostname: ${hostname}
+fqdn: ${hostname}.${domain}
+manage_etc_hosts: true
+
+# Schluessel fuer den Standardbenutzer "debian"
+ssh_authorized_keys:
+  - ${ssh_key}
+
+package_update: true
+packages:
+  - qemu-guest-agent
+  - python3
+
+write_files:
+  - path: /opt/demo-app/server.py
+    permissions: "0755"
+    content: |
+      ${indent(6, app_code)}
+  - path: /etc/systemd/system/demo-server.service
+    content: |
+      [Unit]
+      Description=VirtLab Demo-Server
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Environment=APP_PORT=${app_port}
+      ExecStart=/usr/bin/python3 /opt/demo-app/server.py
+      DynamicUser=yes
+      Restart=always
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  - systemctl daemon-reload
+  - systemctl enable --now qemu-guest-agent demo-server.service

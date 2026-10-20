@@ -1,0 +1,42 @@
+#cloud-config
+# Erstkonfiguration des Clients. Platzhalter wie ${hostname} fuellt OpenTofu aus.
+hostname: ${hostname}
+fqdn: ${hostname}.${domain}
+manage_etc_hosts: true
+
+ssh_authorized_keys:
+  - ${ssh_key}
+
+package_update: true
+packages:
+  - qemu-guest-agent
+  - curl
+
+write_files:
+  - path: /opt/demo-app/client.sh
+    permissions: "0755"
+    content: |
+      ${indent(6, app_code)}
+  - path: /etc/default/demo-client
+    content: |
+      SERVER_URL=http://${server_ip}:${app_port}/
+      INTERVAL=5
+  - path: /etc/systemd/system/demo-client.service
+    content: |
+      [Unit]
+      Description=VirtLab Demo-Client
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      EnvironmentFile=/etc/default/demo-client
+      ExecStart=/opt/demo-app/client.sh
+      DynamicUser=yes
+      Restart=always
+
+      [Install]
+      WantedBy=multi-user.target
+
+runcmd:
+  - systemctl daemon-reload
+  - systemctl enable --now qemu-guest-agent demo-client.service
